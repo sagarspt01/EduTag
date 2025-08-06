@@ -38,7 +38,7 @@ class SubjectViewSet(viewsets.ReadOnlyModelViewSet):
 class StudentViewSet(viewsets.ReadOnlyModelViewSet):
     """
     View to list students filtered by branch and semester.
-    Includes a sub-route for attendance summary.
+    Includes sub-routes for attendance summary and same-batch students.
     """
     queryset = Student.objects.all().order_by('name')
     serializer_class = StudentSerializer
@@ -61,6 +61,20 @@ class StudentViewSet(viewsets.ReadOnlyModelViewSet):
             'percentage': round(percentage, 2),
         })
 
+    @action(detail=True, methods=['get'], url_path='same-batch-students')
+    def same_batch_students(self, request, pk=None):
+        """
+        Returns students in the same branch and semester, excluding the current student.
+        Example: /api/students/5/same-batch-students/
+        """
+        student = self.get_object()
+        branch = student.branch
+        semester = student.semester
+
+        same_batch = Student.objects.filter(branch=branch, semester=semester).exclude(id=student.id).order_by('name')
+        serializer = self.get_serializer(same_batch, many=True)
+        return Response(serializer.data)
+
 
 class TeacherViewSet(viewsets.ReadOnlyModelViewSet):
     """
@@ -75,6 +89,7 @@ class AttendanceViewSet(viewsets.ReadOnlyModelViewSet):
     """
     View to list attendance records.
     Supports filtering by subject, student, and optional date.
+    Example: /api/attendance/?subject=1&student=2&date=2025-08-06
     """
     queryset = AttendanceRecord.objects.all().order_by('-timestamp')
     serializer_class = AttendanceRecordSerializer

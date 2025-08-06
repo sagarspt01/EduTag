@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
-
 import '../core/api.dart';
 import '../models/student.dart';
 
@@ -17,21 +16,25 @@ class StudentService {
       throw Exception('Unauthorized: No token found');
     }
 
-    final uri = Uri.parse(
+    final url = Uri.parse(
       '$baseUrl/students/?branch=$branchId&semester=$semester',
     );
 
-    final headers = {
-      'Accept': 'application/json',
-      'Content-Type': 'application/json',
-      'Authorization': 'Bearer $token',
-    };
-
-    final response = await http.get(uri, headers: headers);
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
 
     if (response.statusCode == 200) {
       try {
-        final List<dynamic> data = jsonDecode(utf8.decode(response.bodyBytes));
+        final Map<String, dynamic> json = jsonDecode(response.body);
+
+        // Adjust depending on your API response
+        final List<dynamic> data = json['students'] ?? json['results'] ?? [];
+
         return data.map((json) => Student.fromJson(json)).toList();
       } catch (e) {
         throw Exception('Error parsing students: $e');
@@ -39,11 +42,9 @@ class StudentService {
     } else if (response.statusCode == 401) {
       throw Exception('Unauthorized: Invalid or expired token');
     } else if (response.statusCode == 404) {
-      throw Exception('Students endpoint not found: $uri');
+      throw Exception('Endpoint not found: $url');
     } else {
-      throw Exception(
-        'Failed to load students: ${response.statusCode} ${response.reasonPhrase}',
-      );
+      throw Exception('Failed to load students: ${response.statusCode}');
     }
   }
 }

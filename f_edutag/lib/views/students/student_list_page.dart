@@ -35,6 +35,45 @@ class _StudentListPageState extends State<StudentListPage> {
     });
   }
 
+  void _showStudentPopup(Student student) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Student Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: CircleAvatar(
+                radius: 40,
+                backgroundImage: student.profilePic != null
+                    ? NetworkImage(student.profilePic!)
+                    : null,
+                backgroundColor: Colors.grey[200],
+                child: student.profilePic == null
+                    ? const Icon(Icons.person, size: 40, color: Colors.grey)
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 16),
+            Text('👤 Name: ${student.name}'),
+            Text('🆔 Reg No: ${student.regNo}'),
+            Text('📧 Email: ${student.email}'),
+            Text('📚 Semester: ${student.semester}'),
+            Text('🏫 Branch: ${student.branch}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _saveAttendance() async {
     if (_presentStudents.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -49,18 +88,19 @@ class _StudentListPageState extends State<StudentListPage> {
       context,
       listen: false,
     );
+
     bool success = await attendanceProvider.saveAttendance(
       _presentStudents.toList(),
     );
 
     if (success) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Attendance saved successfully')),
+        const SnackBar(content: Text('✅ Attendance saved successfully')),
       );
       Navigator.pop(context);
     } else {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to save attendance')),
+        const SnackBar(content: Text('❌ Failed to save attendance')),
       );
     }
   }
@@ -71,7 +111,11 @@ class _StudentListPageState extends State<StudentListPage> {
       appBar: AppBar(
         title: Text(widget.subject.name),
         actions: [
-          IconButton(onPressed: _saveAttendance, icon: const Icon(Icons.save)),
+          IconButton(
+            onPressed: _saveAttendance,
+            icon: const Icon(Icons.save),
+            tooltip: "Save Attendance",
+          ),
         ],
       ),
       body: Consumer<StudentProvider>(
@@ -96,10 +140,10 @@ class _StudentListPageState extends State<StudentListPage> {
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    Text('Total: ${students.length}'),
-                    Text('Present: ${_presentStudents.length}'),
+                    Text('👥 Total: ${students.length}'),
+                    Text('✅ Present: ${_presentStudents.length}'),
                     Text(
-                      'Absent: ${students.length - _presentStudents.length}',
+                      '❌ Absent: ${students.length - _presentStudents.length}',
                     ),
                   ],
                 ),
@@ -112,6 +156,23 @@ class _StudentListPageState extends State<StudentListPage> {
                     final isPresent = _presentStudents.contains(student.regNo);
 
                     return ListTile(
+                      leading: GestureDetector(
+                        onTap: () => _showStudentPopup(student),
+                        child: CircleAvatar(
+                          radius: 40,
+                          backgroundImage: student.profilePic != null
+                              ? NetworkImage(student.profilePic!)
+                              : null,
+                          backgroundColor: Colors.grey[200],
+                          child: student.profilePic == null
+                              ? const Icon(
+                                  Icons.person,
+                                  size: 40,
+                                  color: Colors.grey,
+                                )
+                              : null,
+                        ),
+                      ),
                       title: Text(student.name),
                       subtitle: Text(student.regNo),
                       trailing: Switch(
@@ -126,10 +187,6 @@ class _StudentListPageState extends State<StudentListPage> {
             ],
           );
         },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _saveAttendance,
-        child: const Icon(Icons.save),
       ),
     );
   }
