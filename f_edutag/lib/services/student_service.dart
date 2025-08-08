@@ -32,19 +32,18 @@ class StudentService {
       try {
         final Map<String, dynamic> json = jsonDecode(response.body);
 
-        // Adjust depending on your API response
         final List<dynamic> data = json['students'] ?? json['results'] ?? [];
 
         return data.map((json) => Student.fromJson(json)).toList();
       } catch (e) {
-        throw Exception('Error parsing students: $e');
+        throw Exception('Error parsing student data: $e');
       }
     } else if (response.statusCode == 401) {
       throw Exception('Unauthorized: Invalid or expired token');
     } else if (response.statusCode == 404) {
       throw Exception('Endpoint not found: $url');
     } else {
-      throw Exception('Failed to load students: ${response.statusCode}');
+      throw Exception('Failed to fetch students: ${response.statusCode}');
     }
   }
 }

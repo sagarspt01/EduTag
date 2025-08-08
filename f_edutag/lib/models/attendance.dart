@@ -1,18 +1,27 @@
-// models/attendance.dart
 class AttendanceRecord {
   final String regNo;
   final DateTime timestamp;
+  final int subjectId;
 
-  AttendanceRecord({required this.regNo, required this.timestamp});
+  AttendanceRecord({
+    required this.regNo,
+    required this.timestamp,
+    required this.subjectId,
+  });
 
   factory AttendanceRecord.fromJson(Map<String, dynamic> json) {
     return AttendanceRecord(
-      regNo: json['reg_no'],
+      regNo: json['student_reg_no'],
       timestamp: DateTime.parse(json['timestamp']),
+      subjectId: json['subject'],
     );
   }
 
   Map<String, dynamic> toJson() {
-    return {'reg_no': regNo, 'timestamp': timestamp.toIso8601String()};
+    return {
+      'student_reg_no': regNo,
+      'timestamp': timestamp.toIso8601String(),
+      'subject': subjectId,
+    };
   }
 }

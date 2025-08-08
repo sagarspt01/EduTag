@@ -18,6 +18,10 @@ class FilterProvider with ChangeNotifier {
   bool _isLoadingBranches = false;
   bool _isLoadingSubjects = false;
 
+  // Error states
+  String? _branchesError;
+  String? _subjectsError;
+
   // Getters
   List<Branch> get branches => _branches;
   List<Subject> get subjects => _subjects;
@@ -29,38 +33,67 @@ class FilterProvider with ChangeNotifier {
   bool get isLoadingBranches => _isLoadingBranches;
   bool get isLoadingSubjects => _isLoadingSubjects;
 
+  String? get branchesError => _branchesError;
+  String? get subjectsError => _subjectsError;
+
   /// Load branches from backend
   Future<void> loadBranches() async {
+    if (_isLoadingBranches) return; // Prevent multiple calls
+
     _isLoadingBranches = true;
-    notifyListeners();
+    _branchesError = null;
+
+    // Use addPostFrameCallback to ensure we're not in build phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
 
     try {
       _branches = await BranchService.getBranches();
+      _branchesError = null;
     } catch (e) {
       _branches = [];
+      _branchesError = 'Error loading branches: $e';
       print('Error loading branches: $e');
     } finally {
       _isLoadingBranches = false;
-      notifyListeners();
+
+      // Schedule notification after current frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
   /// Load subjects based on selected branch and semester
   Future<void> loadSubjects(int branchId, int semester) async {
+    if (_isLoadingSubjects) return; // Prevent multiple calls
+
     _isLoadingSubjects = true;
-    notifyListeners();
+    _subjectsError = null;
+
+    // Use addPostFrameCallback to ensure we're not in build phase
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      notifyListeners();
+    });
 
     try {
       _subjects = await SubjectService.getSubjects(
         branchId: branchId,
         semester: semester,
       );
+      _subjectsError = null;
     } catch (e) {
       _subjects = [];
+      _subjectsError = 'Error loading subjects: $e';
       print('Error loading subjects: $e');
     } finally {
       _isLoadingSubjects = false;
-      notifyListeners();
+
+      // Schedule notification after current frame
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        notifyListeners();
+      });
     }
   }
 
@@ -70,6 +103,7 @@ class FilterProvider with ChangeNotifier {
     _selectedSemester = null;
     _selectedSubject = null;
     _subjects = [];
+    _subjectsError = null;
     notifyListeners();
   }
 
@@ -92,6 +126,23 @@ class FilterProvider with ChangeNotifier {
     _selectedSemester = null;
     _selectedSubject = null;
     _subjects = [];
+    _branchesError = null;
+    _subjectsError = null;
     notifyListeners();
+  }
+
+  /// Clear error messages
+  void clearBranchesError() {
+    if (_branchesError != null) {
+      _branchesError = null;
+      notifyListeners();
+    }
+  }
+
+  void clearSubjectsError() {
+    if (_subjectsError != null) {
+      _subjectsError = null;
+      notifyListeners();
+    }
   }
 }

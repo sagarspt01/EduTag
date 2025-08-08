@@ -1,10 +1,14 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/branch.dart';
 import '../../models/subject.dart';
 import '../../models/student.dart';
 import '../../providers/student_provider.dart';
 import '../../providers/attendance_provider.dart';
+import '../students/student_analysis_page.dart';
 
 class StudentListPage extends StatefulWidget {
   final Branch branch;
@@ -23,37 +27,90 @@ class StudentListPage extends StatefulWidget {
 }
 
 class _StudentListPageState extends State<StudentListPage> {
-  final Set<String> _presentStudents = {};
+  final Set<String> _presentRegNos = {};
+  late String _currentDateTime;
+  Timer? _timer;
 
-  void _toggleAttendance(String regNo) {
+  @override
+  void initState() {
+    super.initState();
+    _updateTime();
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) => _updateTime());
+
+    // Load students on startup
+    Future.microtask(() {
+      Provider.of<StudentProvider>(
+        context,
+        listen: false,
+      ).loadStudents(branchId: widget.branch.id, semester: widget.semester);
+    });
+  }
+
+  void _updateTime() {
+    final now = DateTime.now();
     setState(() {
-      if (_presentStudents.contains(regNo)) {
-        _presentStudents.remove(regNo);
+      _currentDateTime = DateFormat(
+        'EEEE, dd MMMM yyyy • hh:mm:ss a',
+      ).format(now);
+    });
+  }
+
+  void _toggleStudent(String regNo) {
+    setState(() {
+      if (_presentRegNos.contains(regNo)) {
+        _presentRegNos.remove(regNo);
       } else {
-        _presentStudents.add(regNo);
+        _presentRegNos.add(regNo);
       }
     });
   }
 
-  void _showStudentPopup(Student student) {
+  Future<void> _saveAttendance() async {
+    if (_presentRegNos.isEmpty) {
+      _showSnackBar('Please mark attendance for at least one student');
+      return;
+    }
+
+    final timestamp = DateTime.now().toIso8601String();
+    final subjectId = widget.subject.id;
+
+    final List<Map<String, dynamic>> data = _presentRegNos.map((regNo) {
+      return {'reg_no': regNo, 'subject': subjectId, 'timestamp': timestamp};
+    }).toList();
+
+    final success = await Provider.of<AttendanceProvider>(
+      context,
+      listen: false,
+    ).saveAttendance(data);
+
+    if (success) {
+      _showSnackBar('✅ Attendance saved successfully');
+      Navigator.pop(context);
+    } else {
+      _showSnackBar('❌ Failed to save attendance');
+    }
+  }
+
+  void _showSnackBar(String message) {
+    ScaffoldMessenger.of(
+      context,
+    ).showSnackBar(SnackBar(content: Text(message)));
+  }
+
+  void _showStudentDetails(Student student) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (_) => AlertDialog(
         title: const Text('Student Details'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Center(
+            const Center(
               child: CircleAvatar(
                 radius: 40,
-                backgroundImage: student.profilePic != null
-                    ? NetworkImage(student.profilePic!)
-                    : null,
-                backgroundColor: Colors.grey[200],
-                child: student.profilePic == null
-                    ? const Icon(Icons.person, size: 40, color: Colors.grey)
-                    : null,
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
               ),
             ),
             const SizedBox(height: 16),
@@ -74,35 +131,10 @@ class _StudentListPageState extends State<StudentListPage> {
     );
   }
 
-  void _saveAttendance() async {
-    if (_presentStudents.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please mark attendance for at least one student'),
-        ),
-      );
-      return;
-    }
-
-    final attendanceProvider = Provider.of<AttendanceProvider>(
-      context,
-      listen: false,
-    );
-
-    bool success = await attendanceProvider.saveAttendance(
-      _presentStudents.toList(),
-    );
-
-    if (success) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('✅ Attendance saved successfully')),
-      );
-      Navigator.pop(context);
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('❌ Failed to save attendance')),
-      );
-    }
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -114,72 +146,83 @@ class _StudentListPageState extends State<StudentListPage> {
           IconButton(
             onPressed: _saveAttendance,
             icon: const Icon(Icons.save),
-            tooltip: "Save Attendance",
+            tooltip: 'Save Attendance',
           ),
         ],
       ),
       body: Consumer<StudentProvider>(
-        builder: (context, studentProvider, child) {
-          if (studentProvider.isLoading) {
+        builder: (context, provider, child) {
+          if (provider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          if (studentProvider.error != null) {
-            return Center(child: Text('Error: ${studentProvider.error}'));
+          if (provider.error != null) {
+            return Center(child: Text('Error: ${provider.error}'));
           }
 
-          final students = studentProvider.students;
+          final students = provider.students;
+
           if (students.isEmpty) {
             return const Center(child: Text('No students found'));
           }
 
           return Column(
             children: [
+              const SizedBox(height: 8),
+              Text(
+                _currentDateTime,
+                style: const TextStyle(fontSize: 16, color: Colors.blueGrey),
+              ),
+              const SizedBox(height: 8),
               Padding(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 child: Row(
                   mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
                     Text('👥 Total: ${students.length}'),
-                    Text('✅ Present: ${_presentStudents.length}'),
+                    Text('✅ Present: ${_presentRegNos.length}'),
                     Text(
-                      '❌ Absent: ${students.length - _presentStudents.length}',
+                      '❌ Absent: ${students.length - _presentRegNos.length}',
                     ),
                   ],
                 ),
               ),
+              const SizedBox(height: 10),
+              ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (_) => const StudentAnalysisPage(),
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.analytics),
+                label: const Text('View Analysis'),
+              ),
+              const SizedBox(height: 10),
               Expanded(
                 child: ListView.builder(
                   itemCount: students.length,
-                  itemBuilder: (context, index) {
+                  itemBuilder: (_, index) {
                     final student = students[index];
-                    final isPresent = _presentStudents.contains(student.regNo);
+                    final isPresent = _presentRegNos.contains(student.regNo);
 
                     return ListTile(
                       leading: GestureDetector(
-                        onTap: () => _showStudentPopup(student),
-                        child: CircleAvatar(
-                          radius: 40,
-                          backgroundImage: student.profilePic != null
-                              ? NetworkImage(student.profilePic!)
-                              : null,
-                          backgroundColor: Colors.grey[200],
-                          child: student.profilePic == null
-                              ? const Icon(
-                                  Icons.person,
-                                  size: 40,
-                                  color: Colors.grey,
-                                )
-                              : null,
+                        onTap: () => _showStudentDetails(student),
+                        child: const CircleAvatar(
+                          backgroundColor: Colors.grey,
+                          child: Icon(Icons.person, color: Colors.white),
                         ),
                       ),
                       title: Text(student.name),
                       subtitle: Text(student.regNo),
                       trailing: Switch(
                         value: isPresent,
-                        onChanged: (_) => _toggleAttendance(student.regNo),
+                        onChanged: (_) => _toggleStudent(student.regNo),
                       ),
-                      onTap: () => _toggleAttendance(student.regNo),
+                      onTap: () => _toggleStudent(student.regNo),
                     );
                   },
                 ),

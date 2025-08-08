@@ -10,9 +10,9 @@ from drf_yasg import openapi
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="Attendance API",
+        title="Student Attendance API",
         default_version='v1',
-        description="API documentation for the Student Attendance System",
+        description="API documentation for the Student Attendance Management System",
     ),
     public=True,
     permission_classes=[permissions.AllowAny],
@@ -22,13 +22,13 @@ urlpatterns = [
     # Admin panel
     path('admin/', admin.site.urls),
 
-    # Core app endpoints
+    # API routes
     path('api/', include('core.urls')),
 
-    # JWT Authentication
-    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),         # Login
-    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),        # Refresh token
+    # JWT Auth
+    path('api/token/', TokenObtainPairView.as_view(), name='token_obtain_pair'),
+    path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
 
-    # Swagger documentation
+    # Swagger/OpenAPI documentation
     path('swagger/', schema_view.with_ui('swagger', cache_timeout=0), name='schema-swagger-ui'),
 ]
