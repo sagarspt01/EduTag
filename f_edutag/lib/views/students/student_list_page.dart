@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-
 import '../../models/branch.dart';
 import '../../models/subject.dart';
 import '../../models/student.dart';
@@ -66,16 +65,27 @@ class _StudentListPageState extends State<StudentListPage> {
   }
 
   Future<void> _saveAttendance() async {
-    if (_presentRegNos.isEmpty) {
-      _showSnackBar('Please mark attendance for at least one student');
+    final students = Provider.of<StudentProvider>(
+      context,
+      listen: false,
+    ).students;
+
+    if (students.isEmpty) {
+      _showSnackBar('No students to mark attendance');
       return;
     }
 
     final timestamp = DateTime.now().toIso8601String();
     final subjectId = widget.subject.id;
 
-    final List<Map<String, dynamic>> data = _presentRegNos.map((regNo) {
-      return {'reg_no': regNo, 'subject': subjectId, 'timestamp': timestamp};
+    final List<Map<String, dynamic>> data = students.map((student) {
+      final isPresent = _presentRegNos.contains(student.regNo);
+      return {
+        'reg_no': student.regNo,
+        'subject': subjectId,
+        'timestamp': timestamp,
+        'status': isPresent ? 'P' : 'A',
+      };
     }).toList();
 
     final success = await Provider.of<AttendanceProvider>(

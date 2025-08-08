@@ -27,20 +27,20 @@ class AttendanceService {
     }
   }
 
-  /// ✅ Bulk mark attendance for multiple students as present
+  /// ✅ Bulk mark attendance for multiple students with 'P' or 'A' status
   static Future<bool> bulkMarkAttendance(
     List<Map<String, dynamic>> attendanceData,
   ) async {
     final token = await AuthService.getToken();
     if (token == null) throw Exception('🔒 No authentication token found');
 
-    // Backend expects 'student' as reg_no, 'subject', 'timestamp', and status='P'
+    // Use the actual 'status' from each entry ('P' or 'A')
     final formattedData = attendanceData.map((data) {
       return {
-        'student': data['reg_no'], // 👈 Use 'student' for reg_no
-        'subject': data['subject'],
-        'timestamp': data['timestamp'],
-        'status': 'P', // 👈 Use 'P' for Present
+        'student': data['reg_no'], // required by backend
+        'subject': data['subject'], // subject ID
+        'timestamp': data['timestamp'], // attendance time
+        'status': data['status'], // 'P' or 'A'
       };
     }).toList();
 
@@ -61,7 +61,7 @@ class AttendanceService {
     }
   }
 
-  /// ✅ Get attendance records with optional filters
+  /// ✅ Fetch attendance records with optional filters
   static Future<List<AttendanceRecord>> getAttendanceRecords({
     int? subjectId,
     String? regNo,
@@ -74,8 +74,7 @@ class AttendanceService {
     List<String> queryParams = [];
 
     if (subjectId != null) queryParams.add('subject=$subjectId');
-    if (regNo != null)
-      queryParams.add('reg_no=$regNo'); // 🛠️ Consistent with backend
+    if (regNo != null) queryParams.add('reg_no=$regNo');
     if (date != null) queryParams.add('date=$date');
 
     if (queryParams.isNotEmpty) {
