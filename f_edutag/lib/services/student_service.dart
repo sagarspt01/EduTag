@@ -5,6 +5,7 @@ import '../core/api.dart';
 import '../models/student.dart';
 
 class StudentService {
+  /// ✅ Get list of students by branch & semester
   static Future<List<Student>> getStudents({
     required int branchId,
     required int semester,
@@ -31,9 +32,7 @@ class StudentService {
     if (response.statusCode == 200) {
       try {
         final Map<String, dynamic> json = jsonDecode(response.body);
-
         final List<dynamic> data = json['students'] ?? json['results'] ?? [];
-
         return data.map((json) => Student.fromJson(json)).toList();
       } catch (e) {
         throw Exception('Error parsing student data: $e');
@@ -44,6 +43,35 @@ class StudentService {
       throw Exception('Endpoint not found: $url');
     } else {
       throw Exception('Failed to fetch students: ${response.statusCode}');
+    }
+  }
+
+  /// ✅ Get single student by registration number
+  static Future<Student> getStudentByRegNo(String regNo) async {
+    final prefs = await SharedPreferences.getInstance();
+    final token = prefs.getString('accessToken');
+
+    if (token == null || token.isEmpty) {
+      throw Exception('Unauthorized: No token found');
+    }
+
+    final url = Uri.parse('$baseUrl/students/$regNo/');
+
+    final response = await http.get(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final Map<String, dynamic> json = jsonDecode(response.body);
+      return Student.fromJson(json);
+    } else if (response.statusCode == 404) {
+      throw Exception('Student not found with regNo: $regNo');
+    } else {
+      throw Exception('Failed to fetch student: ${response.statusCode}');
     }
   }
 }

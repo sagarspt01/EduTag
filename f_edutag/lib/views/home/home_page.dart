@@ -7,6 +7,7 @@ import '../../providers/student_provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../widgets/dropdown_selector.dart';
 import '../../routes/app_routes.dart';
+import '../students/student_analysis_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -272,6 +273,25 @@ class _HomePageState extends State<HomePage> {
                               ? _navigateToStudentList
                               : null,
                           child: const Text('View Students'),
+                        ),
+                      ),
+
+                      const SizedBox(height: 16),
+
+                      // View Analysis Button
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton.icon(
+                          onPressed: () {
+                            Navigator.push(
+                              context,
+                              MaterialPageRoute(
+                                builder: (_) => const StudentAnalysisPage(),
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.analytics),
+                          label: const Text('View Analysis'),
                         ),
                       ),
                     ],

@@ -7,7 +7,6 @@ import '../../models/subject.dart';
 import '../../models/student.dart';
 import '../../providers/student_provider.dart';
 import '../../providers/attendance_provider.dart';
-import '../students/student_analysis_page.dart';
 
 class StudentListPage extends StatefulWidget {
   final Branch branch;
@@ -196,19 +195,6 @@ class _StudentListPageState extends State<StudentListPage> {
                     ),
                   ],
                 ),
-              ),
-              const SizedBox(height: 10),
-              ElevatedButton.icon(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (_) => const StudentAnalysisPage(),
-                    ),
-                  );
-                },
-                icon: const Icon(Icons.analytics),
-                label: const Text('View Analysis'),
               ),
               const SizedBox(height: 10),
               Expanded(
