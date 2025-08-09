@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
@@ -113,21 +114,36 @@ class _StudentListPageState extends State<StudentListPage> {
         title: const Text('Student Details'),
         content: Column(
           mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Center(
-              child: CircleAvatar(
+            CachedNetworkImage(
+              imageUrl: student.profilePic ?? '',
+              imageBuilder: (context, imageProvider) =>
+                  CircleAvatar(radius: 40, backgroundImage: imageProvider),
+              placeholder: (context, url) => const CircleAvatar(
+                radius: 40,
+                backgroundColor: Colors.grey,
+                child: Icon(Icons.person, size: 40, color: Colors.white),
+              ),
+              errorWidget: (context, url, error) => const CircleAvatar(
                 radius: 40,
                 backgroundColor: Colors.grey,
                 child: Icon(Icons.person, size: 40, color: Colors.white),
               ),
             ),
             const SizedBox(height: 16),
-            Text('👤 Name: ${student.name}'),
-            Text('🆔 Reg No: ${student.regNo}'),
-            Text('📧 Email: ${student.email}'),
-            Text('📚 Semester: ${student.semester}'),
-            Text('🏫 Branch: ${student.branch}'),
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('👤 Name: ${student.name}'),
+                  Text('🆔 Reg No: ${student.regNo}'),
+                  Text('📧 Email: ${student.email}'),
+                  Text('📚 Semester: ${student.semester}'),
+                  Text('🏫 Branch: ${student.branch}'),
+                ],
+              ),
+            ),
           ],
         ),
         actions: [
@@ -207,9 +223,19 @@ class _StudentListPageState extends State<StudentListPage> {
                     return ListTile(
                       leading: GestureDetector(
                         onTap: () => _showStudentDetails(student),
-                        child: const CircleAvatar(
-                          backgroundColor: Colors.grey,
-                          child: Icon(Icons.person, color: Colors.white),
+                        child: CachedNetworkImage(
+                          imageUrl: student.profilePic ?? '',
+                          imageBuilder: (context, imageProvider) =>
+                              CircleAvatar(backgroundImage: imageProvider),
+                          placeholder: (context, url) => const CircleAvatar(
+                            backgroundColor: Colors.grey,
+                            child: Icon(Icons.person, color: Colors.white),
+                          ),
+                          errorWidget: (context, url, error) =>
+                              const CircleAvatar(
+                                backgroundColor: Colors.grey,
+                                child: Icon(Icons.person, color: Colors.white),
+                              ),
                         ),
                       ),
                       title: Text(student.name),

@@ -30,6 +30,9 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
   bool loading = false;
   bool subjectLoading = false;
 
+  String? _lastRegNo;
+  String? _lastSubjectId;
+
   @override
   void initState() {
     super.initState();
@@ -68,42 +71,9 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
     }
   }
 
-  Future<void> fetchStudent(String regNo) async {
-    try {
-      final prefs = await SharedPreferences.getInstance();
-      final token = prefs.getString('accessToken');
-
-      if (token == null) throw Exception('Unauthorized. Please login again.');
-
-      final response = await http.get(
-        Uri.parse('$baseUrl/students/?reg_no=$regNo'),
-        headers: {'Authorization': 'Bearer $token'},
-      );
-
-      if (response.statusCode == 200) {
-        final responseData = jsonDecode(response.body);
-        final results = responseData is List
-            ? responseData
-            : responseData['results'] ?? [];
-
-        if (results.isNotEmpty) {
-          setState(() => _student = Student.fromJson(results[0]));
-        } else {
-          throw Exception('Student not found');
-        }
-      } else {
-        throw Exception('Failed to fetch student data');
-      }
-    } catch (e) {
-      setState(
-        () => errorMessage = e.toString().replaceFirst('Exception: ', ''),
-      );
-    }
-  }
-
   Future<void> fetchAttendanceData() async {
     final regNo = _regNoController.text.trim();
-    final subjectId = _selectedSubject?.id;
+    final subjectId = _selectedSubject?.id.toString();
 
     if (regNo.isEmpty || subjectId == null) {
       setState(
@@ -113,37 +83,51 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
       return;
     }
 
+    if (_lastRegNo == regNo &&
+        _lastSubjectId == subjectId &&
+        _student != null) {
+      return;
+    }
+
     setState(() {
       loading = true;
       errorMessage = '';
       total = present = absent = 0;
       percentage = 0;
-      _student = null;
+      if (_lastRegNo != regNo) {
+        _student = null;
+      }
     });
 
     try {
-      await fetchStudent(regNo);
-
       final prefs = await SharedPreferences.getInstance();
       final token = prefs.getString('accessToken');
 
       if (token == null) throw Exception('Unauthorized. Please login again.');
 
       final response = await http.get(
-        Uri.parse('$baseUrl/attendance/?subject=$subjectId&reg_no=$regNo'),
+        Uri.parse(
+          '$baseUrl/attendance/student-summary/?reg_no=$regNo&subject=$subjectId',
+        ),
         headers: {'Authorization': 'Bearer $token'},
       );
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        final List records = data is List ? data : data['results'] ?? [];
 
-        total = records.length;
-        present = records.where((e) => e['status'] == 'P').length;
-        absent = total - present;
-        percentage = total > 0 ? (present / total) * 100 : 0;
+        setState(() {
+          _student = Student.fromJson(data['student']);
+          final summary = data['attendance_summary'];
+          total = summary['total'];
+          present = summary['present'];
+          absent = summary['absent'];
+          percentage = summary['percentage'].toDouble();
+        });
+
+        _lastRegNo = regNo;
+        _lastSubjectId = subjectId;
       } else {
-        throw Exception('Failed to fetch attendance data');
+        throw Exception('Failed to fetch data');
       }
     } catch (e) {
       setState(
@@ -156,7 +140,6 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
 
   Widget _buildInputs() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         TextField(
           controller: _regNoController,
@@ -164,10 +147,21 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
             labelText: "Enter Registration Number",
             border: OutlineInputBorder(),
           ),
+          onChanged: (value) {
+            if (_lastRegNo != value.trim()) {
+              setState(() {
+                _lastRegNo = null;
+                _student = null;
+                total = present = absent = 0;
+                percentage = 0;
+                errorMessage = '';
+              });
+            }
+          },
         ),
         const SizedBox(height: 12),
         subjectLoading
-            ? const Center(child: CircularProgressIndicator())
+            ? const CircularProgressIndicator()
             : DropdownButtonFormField<Subject>(
                 value: _selectedSubject,
                 items: _subjects.map((subject) {
@@ -176,7 +170,17 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
                     child: Text(subject.name),
                   );
                 }).toList(),
-                onChanged: (value) => setState(() => _selectedSubject = value),
+                onChanged: (value) {
+                  setState(() {
+                    _selectedSubject = value;
+                    if (_lastSubjectId != value?.id.toString()) {
+                      _lastSubjectId = null;
+                      total = present = absent = 0;
+                      percentage = 0;
+                      errorMessage = '';
+                    }
+                  });
+                },
                 decoration: const InputDecoration(
                   labelText: 'Select Subject',
                   border: OutlineInputBorder(),
@@ -184,8 +188,10 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
               ),
         const SizedBox(height: 16),
         ElevatedButton(
-          onPressed: fetchAttendanceData,
-          child: const Text("Get Analysis"),
+          onPressed: loading ? null : fetchAttendanceData,
+          child: loading
+              ? const CircularProgressIndicator()
+              : const Text("Get Analysis"),
         ),
       ],
     );
@@ -195,17 +201,32 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
     if (_student == null) return const SizedBox();
 
     return Card(
-      margin: const EdgeInsets.only(top: 20),
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+        child: Row(
           children: [
-            Text("👤 Name: ${_student!.name}"),
-            Text("🆔 Reg No: ${_student!.regNo}"),
-            Text("📧 Email: ${_student!.email}"),
-            Text("🎓 Semester: ${_student!.semester}"),
-            Text("🏢 Branch: ${_student!.branch}"),
+            CircleAvatar(
+              radius: 40,
+              backgroundImage: _student!.profilePic != null
+                  ? NetworkImage(_student!.profilePic!)
+                  : null,
+              child: _student!.profilePic == null
+                  ? const Icon(Icons.person, size: 40)
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text("Name: ${_student!.name}"),
+                  Text("Reg No: ${_student!.regNo}"),
+                  Text("Email: ${_student!.email}"),
+                  Text("Semester: ${_student!.semester}"),
+                  Text("Branch: ${_student!.branch}"),
+                ],
+              ),
+            ),
           ],
         ),
       ),
@@ -214,16 +235,33 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
 
   Widget _buildResults() {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _buildStudentDetails(),
         const SizedBox(height: 20),
-        Text("📊 Total Classes: $total"),
-        Text("✅ Present: $present"),
-        Text("❌ Absent: $absent"),
-        Text("📈 Percentage: ${percentage.toStringAsFixed(1)}%"),
+        Card(
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text("Attendance Summary"),
+                const SizedBox(height: 12),
+                Text("Total Classes: $total"),
+                Text("Present: $present"),
+                Text("Absent: $absent"),
+                Text("Percentage: ${percentage.toStringAsFixed(1)}%"),
+              ],
+            ),
+          ),
+        ),
       ],
     );
+  }
+
+  @override
+  void dispose() {
+    _regNoController.dispose();
+    super.dispose();
   }
 
   @override
@@ -238,15 +276,7 @@ class _StudentAnalysisPageState extends State<StudentAnalysisPage> {
             if (errorMessage.isNotEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 10),
-                child: Text(
-                  errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                ),
-              ),
-            if (loading)
-              const Padding(
-                padding: EdgeInsets.all(20),
-                child: CircularProgressIndicator(),
+                child: Text(errorMessage),
               ),
             if (!loading && total > 0) _buildResults(),
           ],
